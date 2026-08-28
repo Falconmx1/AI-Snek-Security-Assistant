@@ -1,6 +1,17 @@
+// Cargar dotenv ANTES que cualquier otra cosa
+require('dotenv').config();
+
 const OpenAI = require('openai');
 
-// Inicializar el cliente de OpenAI con la API Key del entorno
+// Validar que la API Key existe
+if (!process.env.OPENAI_API_KEY) {
+  console.error('❌ ERROR CRÍTICO: OPENAI_API_KEY no está definida en .env');
+  console.error('📁 Verifica que el archivo .env existe en la raíz y contiene:');
+  console.error('   OPENAI_API_KEY=sk-proj-tu-clave-aqui');
+  process.exit(1); // Detener la ejecución
+}
+
+// Inicializar OpenAI con la clave
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -13,7 +24,7 @@ const openai = new OpenAI({
 async function getSecurityAdvice(userQuestion) {
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Puedes cambiarlo a "gpt-4" si tienes acceso
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
@@ -30,15 +41,13 @@ async function getSecurityAdvice(userQuestion) {
       max_tokens: 500,
     });
 
-    // Extraer y devolver el contenido de la respuesta
     return completion.choices[0].message.content.trim();
 
   } catch (error) {
-    // Manejar errores específicos de la API de OpenAI
     if (error.status === 401) {
-      throw new Error('API Key inválida o no proporcionada. Verifica tu archivo .env');
+      throw new Error('API Key inválida. Verifica tu clave en .env');
     } else if (error.status === 429) {
-      throw new Error('Demasiadas peticiones a la API. Espera un momento y vuelve a intentar.');
+      throw new Error('Demasiadas peticiones. Espera un momento.');
     } else {
       throw new Error(`Error de OpenAI: ${error.message}`);
     }
