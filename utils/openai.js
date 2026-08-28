@@ -19,9 +19,10 @@ const openai = new OpenAI({
 /**
  * Función principal para obtener consejos de seguridad.
  * @param {string} userQuestion - La pregunta del usuario.
+ * @param {number} retries - Número de reintentos (por defecto 3).
  * @returns {string} - La respuesta generada por la IA.
  */
-async function getSecurityAdvice(userQuestion) {
+async function getSecurityAdvice(userQuestion, retries = 3) {
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -38,16 +39,24 @@ async function getSecurityAdvice(userQuestion) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 300, // Reducido para gastar menos tokens
     });
 
     return completion.choices[0].message.content.trim();
 
   } catch (error) {
-    if (error.status === 401) {
+    // Manejar específicamente errores de rate limit (429)
+    if (error.status === 429) {
+      if (retries > 0) {
+        const waitTime = 5000; // Esperar 5 segundos
+        console.log(`⏳ Límite de peticiones alcanzado. Reintentando en ${waitTime/1000} segundos... (${retries} intentos restantes)`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return getSecurityAdvice(userQuestion, retries - 1);
+      } else {
+        throw new Error('Límite de peticiones agotado. Espera un minuto y vuelve a intentar.');
+      }
+    } else if (error.status === 401) {
       throw new Error('API Key inválida. Verifica tu clave en .env');
-    } else if (error.status === 429) {
-      throw new Error('Demasiadas peticiones. Espera un momento.');
     } else {
       throw new Error(`Error de OpenAI: ${error.message}`);
     }
